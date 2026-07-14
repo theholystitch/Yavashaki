@@ -8,6 +8,9 @@ import asyncio
 import logging
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+def save_blocked(blocked):
+    with open('blocked.json', 'w') as f:
+        json.dump(list(blocked), f)
 
 REQUIRED_CHANNEL = os.environ.get("REQUIRED_CHANNEL", "@your_channel")
 ADMIN_ID = int(os.environ.get("ADMIN_ID", "0"))
@@ -78,7 +81,7 @@ async def newlink_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"⚠️ لینک قبلی دیگه کار نمی‌کنه."
     )
 
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_message(update, context):
     user = update.effective_user
     msg = update.message.text
 
@@ -86,40 +89,34 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user.id in blocked:
         return
 
-    if user.id == ADMIN_ID and context.user_data.get('waiting_reply'):
-        target = context.user_data.get('reply_to_user')
-        try:
-            await context.bot.send_message(chat_id=target, text=f"💬 جواب:\n\n{msg}")
-            await update.message.reply_text("✓ جواب رفت.")
-        except:
-            await update.message.reply_text("✗ طرف بلاک کرده.")
-        context.user_data['waiting_reply'] = False
-        return
+    if user.id == ADMIN_ID and update.message.reply_to_message:
+        # ادمین روی پیام ریپلای زده
+        if "سیکتیر" in msg or "سکتیر" in msg:
+            # پیدا کردن شماره پیام
+            target_msg = update.message.reply_to_message.text
+            # استخراج شماره از "📩 پیام #5"
+            import re
+            match = re.search(r'#(\d+)', target_msg)
+            if match:
+                msg_id = match.group(1)
+                storage = load_storage()
+                target = storage.get(msg_id, {})
+                target_id = target.get('user_id')
+                if target_id:
+                    blocked.add(target_id)
+                    save_blocked(blocked)
+                    try:
+                        await context.bot.send_message(
+                            chat_id=target_id,
+                            text="🚫 شما بلاک شدید."
+                        )
+                    except:
+                        pass
+                    await update.message.reply_text(f"✓ طرف بلاک شد.")
+                    return
+            await update.message.reply_text("نتونستم پیداش کنم.")
+            return
 
-    if not context.user_data.get('verified'):
-        return
-
-    storage = load_storage()
-    msg_id = str(len([k for k in storage.keys() if k != "authorized_users"]) + 1)
-    storage[msg_id] = {"user_id": user.id, "username": user.username or "ندارد", "text": msg}
-    save_storage(storage)
-
-    context.user_data['waiting_reply'] = True
-    context.user_data['reply_to_user'] = user.id
-
-    await context.bot.send_message(
-        chat_id=ADMIN_ID,
-        text=f"📩 پیام #{msg_id}\n\n{msg}"
-    )
-    await context.bot.send_message(
-        chat_id=ADMIN_ID,
-        text=(
-            f"⚙️ عملیات روی #{msg_id}:\n\n"
-            f"👤 دیدن آیدی: /who {msg_id}\n"
-            f"🚫 بلاک کاربر: /block {user.id}"
-        )
-    )
-    await update.message.reply_text("✓ فرستاده شد.")
 
 async def who_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
