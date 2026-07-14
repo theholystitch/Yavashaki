@@ -7,6 +7,8 @@ from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQu
 FIXED_LINK_CODE = "shahab"
 ADMIN_ID = int(os.environ.get("ADMIN_ID", "0"))
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
+CHANNEL_USERNAME = "@houseStitch"
+CHANNEL_ID = int(os.environ.get("CHANNEL_ID", "0"))
 STORAGE_FILE = "messages.json"
 BLOCKED_FILE = "blocked.json"
 
@@ -51,19 +53,56 @@ async def start(update, context):
         )
     else:
         if context.args and context.args[0] == FIXED_LINK_CODE:
-            context.user_data['verified'] = True
-            await update.message.reply_text(
-                "✅ *تایید شدی!*\n\n"
-                "از این لحظه می‌تونی پیام ناشناس بفرستی 📨\n"
-                "پیامت رو همینجا بنویس.",
-                parse_mode="Markdown"
-            )
+            try:
+                member = await context.bot.get_chat_member(chat_id=CHANNEL_ID, user_id=user.id)
+                if member.status in ["member", "administrator", "creator"]:
+                    context.user_data['verified'] = True
+                    await update.message.reply_text(
+                        "✅ *تایید شدی!*\n\n"
+                        "از این لحظه می‌تونی پیام ناشناس بفرستی 📨\n"
+                        "پیامت رو همینجا بنویس.",
+                        parse_mode="Markdown"
+                    )
+                else:
+                    keyboard = InlineKeyboardMarkup([
+                        [InlineKeyboardButton("📢 جوین چنل", url=f"https://t.me/{CHANNEL_USERNAME.replace('@', '')}")],
+                        [InlineKeyboardButton("✅ جوین شدم", callback_data="check_join")]
+                    ])
+                    await update.message.reply_text(
+                        f"⚠️ *اول باید جوین بشی*\n\n"
+                        f"برای استفاده از ربات باید عضو چنل {CHANNEL_USERNAME} بشی.\n"
+                        f"بعد از جوین، دکمه زیر رو بزن.",
+                        reply_markup=keyboard,
+                        parse_mode="Markdown"
+                    )
+            except Exception as e:
+                await update.message.reply_text(f"❌ خطا: {e}\n\nادمین رو خبر کن.")
         else:
             await update.message.reply_text(
                 "🚫 *دسترسی نداری*\n\n"
                 "برای استفاده از ربات به لینک ناشناس نیاز داری.",
                 parse_mode="Markdown"
             )
+
+# ---------- چک جوین با دکمه ----------
+async def check_join_callback(update, context):
+    query = update.callback_query
+    await query.answer()
+    user = query.from_user
+    try:
+        member = await context.bot.get_chat_member(chat_id=CHANNEL_ID, user_id=user.id)
+        if member.status in ["member", "administrator", "creator"]:
+            context.user_data['verified'] = True
+            await query.message.edit_text(
+                "✅ *تایید شدی!*\n\n"
+                "از این لحظه می‌تونی پیام ناشناس بفرستی 📨\n"
+                "پیامت رو همینجا بنویس.",
+                parse_mode="Markdown"
+            )
+        else:
+            await query.answer("⚠️ هنوز جوین نشدی!", show_alert=True)
+    except Exception as e:
+        await query.answer(f"خطا: {e}", show_alert=True)
 
 # ---------- دکمه‌های ادمین ----------
 async def admin_buttons(update, context):
@@ -221,7 +260,7 @@ async def unblock_command(update, context):
         return
     blocked.remove(user_id)
     save_blocked(blocked)
-    await query.message.reply_text(f"✅ کاربر `{user_id}` آنبلاک شد ✨", parse_mode="Markdown")
+    await update.message.reply_text(f"✅ کاربر `{user_id}` آنبلاک شد ✨", parse_mode="Markdown")
 
 # ---------- ران ----------
 def main():
@@ -229,6 +268,7 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("unblock", unblock_command))
     app.add_handler(CallbackQueryHandler(admin_buttons, pattern="^(copy_link|list_blocked|reset_msgs|back_admin)$"))
+    app.add_handler(CallbackQueryHandler(check_join_callback, pattern="^check_join$"))
     app.add_handler(CallbackQueryHandler(msg_buttons, pattern="^(id|block):"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.run_polling()
