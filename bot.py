@@ -190,7 +190,7 @@ async def handle_message(update, context):
 
     await context.bot.send_message(
         chat_id=ADMIN_ID,
-        text="❤️ *ناشناس جدید اومده*",
+        text=f"❤️ *ناشناس جدید برات اومده:*\n\n{msg}",
         reply_markup=keyboard,
         parse_mode="Markdown"
     )
@@ -221,7 +221,7 @@ async def unblock_command(update, context):
         return
     blocked.remove(user_id)
     save_blocked(blocked)
-    await update.message.reply_text(f"✅ کاربر `{user_id}` آنبلاک شد ✨", parse_mode="Markdown")
+    await query.message.reply_text(f"✅ کاربر `{user_id}` آنبلاک شد ✨", parse_mode="Markdown")
 
 # ---------- ران ----------
 def main():
