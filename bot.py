@@ -8,7 +8,7 @@ FIXED_LINK_CODE = "shahab"
 ADMIN_ID = int(os.environ.get("ADMIN_ID", "0"))
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 CHANNEL_USERNAME = "@houseStitch"
-CHANNEL_ID = int(os.environ.get("CHANNEL_ID", "0"))
+CHANNEL_ID = -1002243442161
 STORAGE_FILE = "messages.json"
 BLOCKED_FILE = "blocked.json"
 
