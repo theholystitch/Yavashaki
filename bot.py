@@ -1,24 +1,21 @@
 import os
 import json
 import secrets
-FIXED_LINK_CODE = "shahab"
-import random
-import string
-import asyncio
+import re
 import logging
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
-def save_blocked(blocked):
-    with open('blocked.json', 'w') as f:
-        json.dump(list(blocked), f)
 
-REQUIRED_CHANNEL = os.environ.get("REQUIRED_CHANNEL", "@your_channel")
+FIXED_LINK_CODE = "shahab"
 ADMIN_ID = int(os.environ.get("ADMIN_ID", "0"))
 BOT_USERNAME = os.environ.get("BOT_USERNAME", "your_bot")
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 STORAGE_FILE = "messages.json"
 BLOCKED_FILE = "blocked.json"
-CONFIG_FILE = "config.json"
 
+logging.basicConfig(level=logging.INFO)
+
+# ---------- ذخیره‌سازی ----------
 def load_storage():
     if os.path.exists(STORAGE_FILE):
         with open(STORAGE_FILE, "r") as f:
@@ -39,16 +36,7 @@ def save_blocked(data):
     with open(BLOCKED_FILE, "w") as f:
         json.dump(data, f)
 
-def load_config():
-    if os.path.exists(CONFIG_FILE):
-        with open(CONFIG_FILE, "r") as f:
-            return json.load(f)
-    return {"link_secret": secrets.token_urlsafe(8)}
-
-def save_config(data):
-    with open(CONFIG_FILE, "w") as f:
-        json.dump(data, f)
-
+# ---------- /start ----------
 async def start(update, context):
     user = update.effective_user
     if user.id == ADMIN_ID:
@@ -64,23 +52,7 @@ async def start(update, context):
         else:
             await update.message.reply_text("لینک ناشناس نداری.")
 
-async def newlink_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != ADMIN_ID:
-        return
-    config = load_config()
-    config['link_secret'] = secrets.token_urlsafe(8)
-    save_config(config)
-
-    storage = load_storage()
-    storage["authorized_users"] = []
-    save_storage(storage)
-
-    link = f"https://t.me/{BOT_USERNAME}?start={config['link_secret']}"
-    await update.message.reply_text(
-        f"✓ لینک جدید:\n\n{link}\n\n"
-        f"⚠️ لینک قبلی دیگه کار نمی‌کنه."
-    )
-
+# ---------- پیام‌ها ----------
 async def handle_message(update, context):
     user = update.effective_user
     msg = update.message.text
@@ -90,97 +62,52 @@ async def handle_message(update, context):
         return
 
     if user.id == ADMIN_ID and update.message.reply_to_message:
-        # ادمین روی پیام ریپلای زده
+        target_text = update.message.reply_to_message.text or ""
         if "سیکتیر" in msg or "سکتیر" in msg:
-            # پیدا کردن شماره پیام
-            target_msg = update.message.reply_to_message.text
-            # استخراج شماره از "📩 پیام #5"
-            import re
-            match = re.search(r'#(\d+)', target_msg)
+            match = re.search(r'#(\d+)', target_text)
             if match:
                 msg_id = match.group(1)
                 storage = load_storage()
                 target = storage.get(msg_id, {})
                 target_id = target.get('user_id')
                 if target_id:
-                    blocked.add(target_id)
+                    blocked.append(target_id)
                     save_blocked(blocked)
                     try:
-                  print(f"پیام دریافت شد از {user.id}: {msg}")
+                        await context.bot.send_message(
+                            chat_id=target_id,
+                            text="بلاک شدی که عه"
+                        )
                     except:
                         pass
-                    await update.message.reply_text(f"✓ طرف بلاک شد.")
+                    await update.message.reply_text("✓ طرف بلاک شد.")
                     return
             await update.message.reply_text("نتونستم پیداش کنم.")
             return
 
+    if not context.user_data.get('verified'):
+        return
 
-async def who_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != ADMIN_ID:
-        return
-    if not context.args:
-        await update.message.reply_text("نحوه استفاده: /who 1")
-        return
     storage = load_storage()
-    data = storage.get(context.args[0])
-    if not data:
-        await update.message.reply_text("پیدا نشد.")
-        return
-    await update.message.reply_text(
-        f"🔍 فرستنده #{context.args[0]}:\n\n"
-        f"ID: {data['user_id']}\n"
-        f"Username: @{data['username']}\n\n"
-        f"بلاک: /block {data['user_id']}"
+    msg_id = str(len(storage) + 1)
+    storage[msg_id] = {
+        "user_id": user.id,
+        "username": user.username or "ندارد"
+    }
+    save_storage(storage)
+
+    await context.bot.send_message(
+        chat_id=ADMIN_ID,
+        text=f"📩 پیام #{msg_id}\n\n{msg}"
     )
+    await update.message.reply_text("✓ فرستاده شد.")
 
-async def block_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != ADMIN_ID:
-        return
-    if not context.args:
-        await update.message.reply_text("نحوه استفاده: /block 123456789")
-        return
-    try:
-        user_id = int(context.args[0])
-    except:
-        await update.message.reply_text("آیدی نامعتبره.")
-        return
-    blocked = load_blocked()
-    if user_id in blocked:
-        await update.message.reply_text("از قبل بلاکه.")
-        return
-    blocked.append(user_id)
-    save_blocked(blocked)
-    await update.message.reply_text(f"✓ بلاک شد: {user_id}")
-
-async def unblock_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != ADMIN_ID:
-        return
-    if not context.args:
-        await update.message.reply_text("نحوه استفاده: /unblock 123456789")
-        return
-    try:
-        user_id = int(context.args[0])
-    except:
-        await update.message.reply_text("آیدی نامعتبره.")
-        return
-    blocked = load_blocked()
-    if user_id not in blocked:
-        await update.message.reply_text("بلاک نیست.")
-        return
-    blocked.remove(user_id)
-    save_blocked(blocked)
-    await update.message.reply_text(f"✓ آنبلاک شد: {user_id}")
-
+# ---------- ران ----------
 def main():
-    app = Application.builder().token(os.environ.get("BOT_TOKEN")).build()
+    app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("newlink", newlink_command))
-    app.add_handler(CommandHandler("who", who_command))
-    app.add_handler(CommandHandler("block", block_command))
-    app.add_handler(CommandHandler("unblock", unblock_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.run_polling()
 
 if __name__ == "__main__":
     main()
-    
