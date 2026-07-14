@@ -1,6 +1,11 @@
 import os
 import json
 import secrets
+FIXED_LINK_CODE = "shahab"
+import random
+import string
+import asyncio
+import logging
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
@@ -41,52 +46,20 @@ def save_config(data):
     with open(CONFIG_FILE, "w") as f:
         json.dump(data, f)
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def start(update, context):
     user = update.effective_user
-    blocked = load_blocked()
-
-    if user.id in blocked:
-        return
-
     if user.id == ADMIN_ID:
-        config = load_config()
-        link = f"https://t.me/{BOT_USERNAME}?start={config['link_secret']}"
+        bot = await context.bot.get_me()
+        link = f"https://t.me/{bot.username}?start={FIXED_LINK_CODE}"
         await update.message.reply_text(
-            f"🔗 لینک ناشناس تو:\n\n{link}\n\n"
-            f"هرکی این لینک رو باز کنه می‌تونه ناشناس بهت پیام بده.\n\n"
-            f"⚠️ فقط کسایی که این لینک رو دارن می‌تونن پیام بدن.\n\n"
-            f"برای عوض کردن لینک: /newlink"
+            f"🔗 لینک ناشناس تو:\n\n{link}"
         )
-        return
-
-    if context.args and len(context.args) > 0:
-        config = load_config()
-        if context.args[0] == config['link_secret']:
-            try:
-                member = await context.bot.get_chat_member(REQUIRED_CHANNEL, user.id)
-                if member.status not in ['member', 'administrator', 'creator']:
-                    await update.message.reply_text(
-                        f"اول عضو کانال شو:\n"
-                        f"https://t.me/{REQUIRED_CHANNEL[1:]}\n\n"
-                        f"بعدش دوباره روی لینک بزن."
-                    )
-                    return
-            except:
-                await update.message.reply_text("ربات رو ادمین کانال کن.")
-                return
-
-            storage = load_storage()
-            authorized = storage.get("authorized_users", [])
-            if user.id not in authorized:
-                authorized.append(user.id)
-                storage["authorized_users"] = authorized
-                save_storage(storage)
-
-            await update.message.reply_text("✓ می‌تونی ناشناس پیام بدی. سوالت رو بنویس:")
+    else:
+        if context.args and context.args[0] == FIXED_LINK_CODE:
             context.user_data['verified'] = True
-            return
-
-    await update.message.reply_text("⛔️ لینک ناشناس نداری.")
+            await update.message.reply_text("✓ تایید شدی. پیامت رو بفرست.")
+        else:
+            await update.message.reply_text("لینک ناشناس نداری.")
 
 async def newlink_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
@@ -216,3 +189,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
