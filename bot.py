@@ -136,9 +136,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await context.bot.send_message(
         chat_id=ADMIN_ID,
-        text=f"📩 #{msg_id}\n\n{msg}\n\n"
-             f"برای دیدن آیدی: /who {msg_id}\n"
-             f"برای بلاک: /block {user.id}"
+        text=f"📩 پیام #{msg_id}\n\n{msg}"
+    )
+    await context.bot.send_message(
+        chat_id=ADMIN_ID,
+        text=(
+            f"⚙️ عملیات روی #{msg_id}:\n\n"
+            f"👤 دیدن آیدی: /who {msg_id}\n"
+            f"🚫 بلاک کاربر: /block {user.id}"
+        )
     )
     await update.message.reply_text("✓ فرستاده شد.")
 
