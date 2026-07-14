@@ -106,10 +106,7 @@ async def handle_message(update, context):
                     blocked.add(target_id)
                     save_blocked(blocked)
                     try:
-                        await context.bot.send_message(
-                            chat_id=target_id,
-                            text="🚫 شما بلاک شدید."
-                        )
+                  print(f"پیام دریافت شد از {user.id}: {msg}")
                     except:
                         pass
                     await update.message.reply_text(f"✓ طرف بلاک شد.")
