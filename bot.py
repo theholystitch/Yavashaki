@@ -37,21 +37,17 @@ def save_blocked(data):
 async def start(update, context):
     user = update.effective_user
     if user.id == ADMIN_ID:
-        bot = await context.bot.get_me()
-        link = f"https://t.me/{bot.username}?start={FIXED_LINK_CODE}"
         keyboard = InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("🔍 آیدی", callback_data=f"id:{msg_id}"),
-            InlineKeyboardButton("🚫 بلاک", callback_data=f"block:{msg_id}")
-        ]
-    ])
-
-    await context.bot.send_message(
-        chat_id=ADMIN_ID,
-        text=f"❤️ *#ناشناس جدید*\n\n{msg}",
-        reply_markup=keyboard,
-        parse_mode="Markdown"
- 
+            [InlineKeyboardButton("📎 کپی لینک", callback_data="copy_link")],
+            [InlineKeyboardButton("🚫 لیست بلاک‌شده‌ها", callback_data="list_blocked")],
+            [InlineKeyboardButton("♻️ ریست پیام‌ها", callback_data="reset_msgs")]
+        ])
+        await update.message.reply_text(
+            "👋 *سلام ادمین عزیز*\n\n"
+            "به پنل مدیریت خوش اومدی ✨\n"
+            "از دکمه‌های زیر استفاده کن:",
+            reply_markup=keyboard,
+            parse_mode="Markdown"
         )
     else:
         if context.args and context.args[0] == FIXED_LINK_CODE:
@@ -125,7 +121,7 @@ async def admin_buttons(update, context):
             parse_mode="Markdown"
         )
 
-# ---------- دکمه زیر پیام ناشناس (برای ادمین) ----------
+# ---------- دکمه زیر پیام ناشناس ----------
 async def msg_buttons(update, context):
     query = update.callback_query
     await query.answer()
@@ -194,7 +190,7 @@ async def handle_message(update, context):
 
     await context.bot.send_message(
         chat_id=ADMIN_ID,
-        text=f"📩 *پیام #{msg_id}*\n\n{msg}",
+        text="❤️ *ناشناس جدید اومده*",
         reply_markup=keyboard,
         parse_mode="Markdown"
     )
